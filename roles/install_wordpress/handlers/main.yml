@@ -8,7 +8,7 @@
 
 - name: Restart MariaDB
   service:
-    name: mariadbf
+    name: mariadb
     state: restarted
     enabled: yes
   tags: [restart_mariadb]

@@ -1,0 +1,10 @@
+---
+server.yourdomain.com: example.com
+mariadb_root_password: mariadb_root_password
+server_fqdn: example.com
+mariadb_socket: /var/lib/mysql/mysql.sock
+
+
+mariadb_databases:
+  - {db1: 'database1'}
+  - {db2: 'database2'}

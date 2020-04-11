@@ -1,7 +1,7 @@
 ---
-- name: set hostname
-  shell: hostnamectl set-hostname "{{server.yourdomain.com}}"
-  tags: [set_hostname]
+#- name: set hostname
+#  shell: hostnamectl set-hostname "{{server.yourdomain.com}}"
+#  tags: [set_hostname]
 
 - name: Add epel-repository
   yum_repository:
@@ -10,25 +10,24 @@
     baseurl: https://download.fedoraproject.org/pub/epel/$releasever/$basearch/
   tags: [enable_epel]
 
-- name: disable php5 repository
-  yum_repository:
-    name: remi-php54
-    enabled: no
-  tags: [disable-php54]
-
-- name: enable php73 repository
-  yum_repository:
-    name: remi-php73
-    enabled: no
-  tags: [enable-php73]
+- name: install yum-utils
+  yum:
+    name: yum-utils
+    state: present
+  tags: [install_utils]
+- name: diable php54 and enable php73
+  shell: yum-config-manager --disable remi-php54 && yum-config-manager --enable remi-php73
+  tags: [enable_php73]
 
 - name: Add official MariaDB repository
   yum_repository:
     name: MariaDB
+    description: Official MariaDB repository
     baseurl: "http://{{ mariadb_mirror }}/{{ mariadb_version }}/{{ ansible_distribution|lower|regex_replace('redhat', 'rhel')|regex_replace('oraclelinux', 'centos') }}{{ ansible_distribution_major_version }}-amd64"
     gpgkey: https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
     gpgcheck: true
-  tags: [mariadb]
+    state: present
+  tags: mariadb
 
 - name: update packages
   yum:
@@ -37,7 +36,7 @@
   tags: [update_pkg]
 - name: Installing LAMP Stack
   yum:
-    name: {{ whit_items }}
+    name: "{{ item }}"
     state: present
   loop:
     - "httpd"
@@ -47,7 +46,6 @@
     - "php-gd"
     - "php-xml"
     - "php-mbstring"
-    - "php-mcrypt"
   notify: Restart Apache
   tags: [installpkg]
 - name: Install mariadb
@@ -60,16 +58,54 @@
   notify: Restart MariaDB
   tags: [install_mariadb]
 # MySQL Configuration
-- name: Update MySQL root password for all root accounts
-  mysql_user: 
-    name: root 
-    host: {{ item }} 
-    password: {{ mysql_root_password }}
-    login_user: root
-    login_password: ""
+- name: Set MariaDB root password for the first time (root@localhost)
+  mysql_user:
+    name: root
+    password: "{{ mariadb_root_password }}"
+    host: localhost
+    login_unix_socket: "{{ mariadb_socket }}"
     state: present
-  with_items:
-    - 127.0.0.1
-    - ::1
-    - localhost
-  tags: [set_root_pass]
+  tags: [mariadb_rootpass]
+- name: Set MariaDB root password for 127.0.0.1, ::1
+  mysql_user:
+    name: root
+    password: "{{ mariadb_root_password }}"
+    host: "{{ item }}"
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+    login_unix_socket: "{{ mariadb_socket }}"
+    state: present
+  loop:
+    - " ::1 "
+    - " 127.0.0.1 "
+  tags: [mariadb_rootpass]
+- name: Remove the test database
+  mysql_db:
+    name: test
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+    login_unix_socket: "{{ mariadb_socket }}"
+    state: absent
+  tags: [remove_testdb]
+
+- name: Remove anonymous users
+  mysql_user:
+    name: ''
+    host_all: true
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+    login_unix_socket: "{{ mariadb_socket }}"
+    state: absent
+  tags: [remove_usertest]
+- name: Create the users
+- name: Create user defined databases
+  mysql_db:
+    name: "{{ item }}"
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+    login_unix_socket: "{{ mariadb_socket }}"
+    state: present
+  loop: 
+    - "{{ mariadb_databases }}"
+  register: db_creation
+  tags: mariadb
