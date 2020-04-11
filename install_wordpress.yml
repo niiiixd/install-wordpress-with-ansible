@@ -1,0 +1,4 @@
+---
+- hosts: wordpress
+  roles:
+          - install_wordpress
