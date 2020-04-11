@@ -1,0 +1,14 @@
+---
+- name: Restart Apache
+  service:
+    name: httpd
+    state: restarted
+    enabled: yes
+  tags: [restart_apache]
+
+- name: Restart MariaDB
+  service:
+    name: mariadbf
+    state: restarted
+    enabled: yes
+  tags: [restart_mariadb]
